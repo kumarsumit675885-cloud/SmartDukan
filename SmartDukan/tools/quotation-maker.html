@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="hi">
+<head><meta charset="utf-8"><meta name="viewport"content="width=device-width,initial-scale=1"><title>Quotation - SmartDukan</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>.wrap{max-width:900px;margin:18px auto;background:#fff;padding:18px;border-radius:10px}.items-table th,.items-table td{padding:8px;border:1px solid #eee}</style>
+</head>
+<body>
+<header class="site-header"><div class="logo">SmartDukan</div></header>
+<div class="wrap">
+  <h2>Quotation Maker</h2>
+  <input id="qTo" placeholder="To (Customer)"/>
+  <table class="items-table" style="width:100%;margin-top:8px"><thead><tr><th>Item</th><th>Qty</th><th>Rate</th></tr></thead><tbody id="qBody"></tbody></table>
+  <div style="margin-top:8px"><button class="btn" id="addQ">Add Item</button> <button class="btn" id="printQ">Print / Save</button></div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let qitems = [];
+function render(){ const b = SD.q('#qBody'); b.innerHTML=''; qitems.forEach((it,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td><input value="${it.name||''}" data-i="${i}" class="iname"/></td><td><input type="number" value="${it.qty||1}" class="iq" data-i="${i}"/></td><td><input type="number" value="${it.rate||0}" class="ir" data-i="${i}"/></td>`; b.appendChild(tr); }); SD.qa('.iname').forEach(el=>el.addEventListener('input', onChange)); SD.qa('.iq').forEach(el=>el.addEventListener('input', onChange)); SD.qa('.ir').forEach(el=>el.addEventListener('input', onChange)); }
+function onChange(e){ const i=+e.target.dataset.i; const row=e.target.closest('tr'); qitems[i] = { name: row.querySelector('.iname').value, qty: Number(row.querySelector('.iq').value)||0, rate: Number(row.querySelector('.ir').value)||0 }; }
+SD.q('#addQ').addEventListener('click', ()=>{ qitems.push({name:'',qty:1,rate:0}); render(); });
+SD.q('#printQ').addEventListener('click', ()=>{ const w=window.open('','_blank'); let html=`<h2>Quotation</h2><div>To: ${SD.q('#qTo').value||''}</div><table border=1 style="border-collapse:collapse"><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Amt</th></tr>`; let tot=0; qitems.forEach(it=>{ const amt=(it.qty||0)*(it.rate||0); tot+=amt; html+=`<tr><td>${it.name}</td><td>${it.qty}</td><td>${it.rate}</td><td>${amt}</td></tr>`}); html+=`</table><h3>Total: ${SD.formatCurrency(tot)}</h3>`; w.document.write(html); w.print(); });
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SmartDukan Dashboard</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header>
+   <h2>SmartDukan Dashboard</h2>
+   <button onclick="logout()">Logout</button>
+</header>
+
+<section class="cards">
+   <div class="card">
+      <h3>Total Sales</h3>
+      <p id="totalSales">₹ 0</p>
+   </div>
+   <div class="card">
+      <h3>Customers</h3>
+      <p id="customers">0</p>
+   </div>
+   <div class="card">
+      <h3>Stock Items</h3>
+      <p id="stockItems">0</p>
+   </div>
+   <div class="card">
+      <h3>Outstanding</h3>
+      <p id="outstanding">₹ 0</p>
+   </div>
+</section>
+
+<script src="firebase.js"></script>
+<script src="assets/js/dashboard.js"></script>
+<script src="assets/js/auth.js"></script>
+
+</body>
+</html>

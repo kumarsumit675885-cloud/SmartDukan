@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Price Tag Maker — Advanced — SmartDukan</title>
+
+<!-- QR lib -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+<style>
+:root{
+  --bg:#f3f6fb;
+  --panel:#fff;
+  --muted:#6b7280;
+  --accent-blue:#2563eb;
+  --accent-red:#ef4444;
+  --accent-min:#111827;
+  --tag-gap:8mm;
+  --page-margin-mm:10mm; /* default print margin - adjustable */
+}
+
+/* Basic UI */
+body{font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);margin:0;color:#0b1220}
+.container{max-width:1200px;margin:18px auto;padding:14px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:40px;height:40px}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.panel{background:var(--panel);padding:14px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.06);border:1px solid rgba(11,18,32,0.04)}
+.grid2{display:grid;grid-template-columns:380px 1fr;gap:12px;margin-top:12px}
+.left{min-width:300px}
+.small{font-size:13px;color:var(--muted)}
+label{display:block;margin-top:8px;font-weight:600;font-size:13px}
+
+/* inputs */
+input[type="text"], input[type="number"], select, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eefc;margin-top:6px;font-size:14px;background:transparent}
+input[type="file"]{margin-top:6px}
+.btn{padding:9px 12px;border-radius:8px;border:0;cursor:pointer;font-weight:700}
+.btn.primary{background:var(--accent-blue);color:white}
+.btn.red{background:var(--accent-red);color:white}
+.btn.ghost{background:transparent;border:1px solid rgba(2,6,23,0.06)}
+
+/* tags table */
+.tags-table{margin-top:12px;width:100%;border-collapse:collapse}
+.tags-table th, .tags-table td{padding:8px;border-bottom:1px solid #eef2ff;font-size:14px;text-align:left}
+
+/* right preview panel */
+.preview-wrap{display:flex;flex-direction:column;gap:12px}
+.preview-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.preview-area{background:#fff;padding:12px;border-radius:10px;overflow:auto;border:1px solid rgba(2,6,23,0.04)}
+
+/* poster / sheet area: use CSS variables for margins and grid */
+.sheet {
+  width:210mm; /* A4 width */
+  height:297mm; /* A4 height */
+  background: white;
+  margin: 0 auto;
+  position: relative;
+  box-shadow: 0 10px 40px rgba(2,6,23,0.12);
+  transform-origin: top left;
+}
+
+/* sheet inner area controlled by set margins */
+.sheet-inner {
+  position:absolute;
+  left:var(--page-margin-mm);
+  top:var(--page-margin-mm);
+  right:var(--page-margin-mm);
+  bottom:var(--page-margin-mm);
+  display:grid;
+  gap: var(--tag-gap);
+  align-content:start;
+  justify-items:center;
+}
+
+/* Tag templates: default design */
+.tag {
+  width:100%;
+  height:100%;
+  box-sizing:border-box;
+  border-radius:8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:6px;
+  text-align:center;
+  overflow:hidden;
+  position:relative;
+  background:white;
+  border:1px solid #e5e7eb;
+}
+
+/* Template variants */
+.tag.big .price{font-size:32px;font-weight:800;color:#e60000}
+.tag.small{padding:6px}
+.tag.small .price{font-size:24px}
+.tag.round{border-radius:18px}
+.tag.fancy{box-shadow: 0 8px 30px rgba(2,6,23,0.08);border:0;transform:translateY(0);}
+
+/* Tag content */
+.tag .shop{font-weight:700;font-size:14px}
+.tag .product{font-size:13px;margin-top:4px}
+.tag .price{font-size:28px;margin-top:8px}
+.tag .qr{margin-top:8px;width:56px;height:56px}
+.tag .logo{width:36px;height:36px;border-radius:6px;object-fit:cover;position:absolute;left:8px;top:8px}
+
+/* color themes */
+.theme-blue .tag{border-color:rgba(37,99,235,0.12)}
+.theme-blue .tag .price{color: #2563eb}
+.theme-red .tag .price{color:#ef4444}
+.theme-min .tag{background:#f8fafc}
+
+/* grid presets - defined in JS by columns/rows but for print we will set CSS grid */
+.sheet-inner.grid-3x5{grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(5, auto);}
+.sheet-inner.grid-4x6{grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(6, auto);}
+.sheet-inner.grid-6x10{grid-template-columns: repeat(6,1fr); grid-template-rows: repeat(10, auto);}
+
+/* print styling */
+@page { size: A4; margin: 0; }
+@media print {
+  body *{visibility:hidden}
+  .sheet, .sheet *{visibility:visible}
+  .sheet{position:fixed;left:0;top:0;box-shadow:none}
+}
+
+/* responsive */
+@media (max-width:980px){
+  .grid2{grid-template-columns:1fr; gap:12px}
+  .preview-wrap{order:2}
+}
+
+/* small helper */
+.small-muted{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="brand">
+      <img src="../assets/img/icons/price.png" alt="logo" onerror="this.style.display='none'">
+      <div>
+        <div style="font-weight:800">Price Tag Maker — Advanced</div>
+        <small class="small">Create printable price tags with logo, QR, templates & themes</small>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn primary" id="addTagBtn">Add Tag</button>
+      <button class="btn ghost" id="clearTagsBtn">Clear All</button>
+      <button class="btn" id="saveSheetBtn">Save Sheet (History)</button>
+      <button class="btn primary" id="printBtnTop">Print A4</button>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- LEFT: Controls + Tag List -->
+    <div class="left panel">
+      <h3>New Tag Details</h3>
+
+      <label>Shop Name</label>
+      <input type="text" id="shopInput" placeholder="Shop name (shown on tag)">
+
+      <label>Product Name</label>
+      <input type="text" id="productInput" placeholder="Product e.g. Atta 5kg">
+
+      <label>Price (₹)</label>
+      <input type="number" id="priceInput" placeholder="e.g. 320">
+
+      <label>Optional UPI (for QR)</label>
+      <input type="text" id="upiInput" placeholder="merchant@upi (leave blank for no QR)">
+
+      <label>Logo (for this tag)</label>
+      <input type="file" id="logoInputTag" accept="image/*">
+
+      <label>Template</label>
+      <select id="templateSelect">
+        <option value="big">Big</option>
+        <option value="small">Small</option>
+        <option value="round">Round</option>
+        <option value="fancy">Fancy</option>
+      </select>
+
+      <label>Theme</label>
+      <select id="themeSelect">
+        <option value="blue">Blue</option>
+        <option value="red">Red</option>
+        <option value="min">Minimal White</option>
+      </select>
+
+      <label class="small">Tag Count to add</label>
+      <input type="number" id="countInput" value="1" min="1">
+
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn primary" id="addMultipleBtn">Add Multiple</button>
+        <button class="btn" id="previewOneBtn">Preview One</button>
+      </div>
+
+      <hr style="margin-top:14px">
+
+      <h3>Sheet Settings</h3>
+      <label>A4 Grid</label>
+      <select id="gridSelect">
+        <option value="3x5">3 × 5 (default)</option>
+        <option value="4x6">4 × 6</option>
+        <option value="6x10">6 × 10</option>
+      </select>
+
+      <label>Print Margin (mm)</label>
+      <input type="number" id="marginInput" value="10" min="0" max="40">
+
+      <label>Tag Gap (mm)</label>
+      <input type="number" id="gapInput" value="8" min="0" max="30">
+
+      <hr style="margin-top:14px">
+
+      <h3>Tags in Sheet</h3>
+      <table class="tags-table" id="tagsTable">
+        <thead><tr><th>Shop / Product</th><th>Price</th><th>Template</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <div style="margin-top:8px">
+        <small class="small-muted">Tip: Add tags then press "Print A4" to get a printable sheet.</small>
+      </div>
+    </div>
+
+    <!-- RIGHT: Preview -->
+    <div class="right panel preview-wrap">
+      <div class="preview-top">
+        <div>
+          <strong>Preview</strong>
+          <div class="small">Live A4 preview (not full scale in browser)</div>
+        </div>
+        <div>
+          <button class="btn ghost" id="exportPngBtn">Export Sheet PNG</button>
+          <button class="btn primary" id="exportPdfBtn">Export PDF (A4)</button>
+        </div>
+      </div>
+
+      <div class="preview-area" id="previewArea">
+        <div class="sheet" id="sheet">
+          <div class="sheet-inner grid-3x5" id="sheetInner" style="left:var(--page-margin-mm);top:var(--page-margin-mm);">
+            <!-- tags injected here -->
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <strong>History</strong>
+        <div id="sheetHistory" class="history-list panel" style="margin-top:8px;max-height:220px;overflow:auto"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Advanced Price Tag Maker
+   - tags[] holds tag objects: {shop,product,price,upi,logoDataUrl,template,theme}
+   - grid options define columns x rows -> JS will compute number of slots
+   - print margin & gap are set via CSS variables
+*/
+
+const tags = []; // current sheet tags
+const HISTORY_KEY = 'smartdukan_tags_history_v1';
+
+// DOM refs
+const shopInput = document.getElementById('shopInput');
+const productInput = document.getElementById('productInput');
+const priceInput = document.getElementById('priceInput');
+const upiInput = document.getElementById('upiInput');
+const logoInputTag = document.getElementById('logoInputTag');
+const templateSelect = document.getElementById('templateSelect');
+const themeSelect = document.getElementById('themeSelect');
+const countInput = document.getElementById('countInput');
+const addMultipleBtn = document.getElementById('addMultipleBtn');
+const previewOneBtn = document.getElementById('previewOneBtn');
+
+const gridSelect = document.getElementById('gridSelect');
+const marginInput = document.getElementById('marginInput');
+const gapInput = document.getElementById('gapInput');
+
+const tagsTableBody = document.querySelector('#tagsTable tbody');
+
+const sheetInner = document.getElementById('sheetInner');
+const sheet = document.getElementById('sheet');
+
+const exportPngBtn = document.getElementById('exportPngBtn');
+const exportPdfBtn = document.getElementById('exportPdfBtn');
+const printBtnTop = document.getElementById('printBtnTop');
+
+const addTagBtn = document.getElementById('addTagBtn');
+const clearTagsBtn = document.getElementById('clearTagsBtn');
+const saveSheetBtn = document.getElementById('saveSheetBtn');
+const sheetHistoryEl = document.getElementById('sheetHistory');
+
+const previewOne = document.getElementById('previewArea');
+
+// helper to read file to dataURL
+function fileToDataURL(file){ 
+  return new Promise((res,rej)=>{
+    if(!file) return res(null);
+    const fr = new FileReader();
+    fr.onload = ()=> res(fr.result);
+    fr.onerror = ()=> rej('error');
+    fr.readAsDataURL(file);
+  });
+}
+
+// add tag (single)
+async function addTagSingle({shop, product, price, upi, logoFile, template, theme}){
+  let logoData = null;
+  if(logoFile) logoData = await fileToDataURL(logoFile);
+  const tag = {shop, product, price, upi, logoData, template, theme};
+  tags.push(tag);
+  renderTagsTable();
+  renderSheet();
+}
+
+// Add multiple based on count input (clones)
+addMultipleBtn.addEventListener('click', async ()=>{
+  const count = Math.max(1, Number(countInput.value) || 1);
+  if(!productInput.value || !priceInput.value){ alert('Product and Price required'); return; }
+  const logoFile = logoInputTag.files[0] || null;
+  for(let i=0;i<count;i++){
+    await addTagSingle({
+      shop: shopInput.value,
+      product: productInput.value,
+      price: priceInput.value,
+      upi: upiInput.value,
+      logoFile,
+      template: templateSelect.value,
+      theme: themeSelect.value
+    });
+  }
+});
+
+// single add button
+document.getElementById('addTagBtn').addEventListener('click', async ()=>{
+  if(!productInput.value || !priceInput.value){ alert('Product and Price required'); return; }
+  const logoFile = logoInputTag.files[0] || null;
+  await addTagSingle({
+    shop: shopInput.value,
+    product: productInput.value,
+    price: priceInput.value,
+    upi: upiInput.value,
+    logoFile,
+    template: templateSelect.value,
+    theme: themeSelect.value
+  });
+});
+
+// preview one (temporary)
+previewOneBtn.addEventListener('click', async ()=>{
+  if(!productInput.value || !priceInput.value){ alert('Product and Price required'); return; }
+  const logoFile = logoInputTag.files[0] || null;
+  const tempTag = {
+    shop: shopInput.value, product: productInput.value, price: priceInput.value,
+    upi: upiInput.value, logoData: logoFile ? await fileToDataURL(logoFile) : null,
+    template: templateSelect.value, theme: themeSelect.value
+  };
+  renderSheet([tempTag]); // pass array to render only that
+});
+
+// clear all tags
+clearTagsBtn.addEventListener('click', ()=>{
+  if(!confirm('Clear all tags?')) return;
+  tags.splice(0,tags.length);
+  renderTagsTable(); renderSheet();
+});
+
+// render tags table
+function renderTagsTable(){
+  tagsTableBody.innerHTML = '';
+  tags.forEach((t, idx)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${escapeHtml(t.shop||'')}</strong><br><small>${escapeHtml(t.product||'')}</small></td>
+      <td>₹ ${t.price}</td>
+      <td>${t.template}</td>
+      <td>
+        <button class="btn ghost" onclick="editTag(${idx})">Edit</button>
+        <button class="btn red" onclick="deleteTag(${idx})">Delete</button>
+      </td>`;
+    tagsTableBody.appendChild(tr);
+  });
+}
+
+// edit tag (load into form then delete)
+window.editTag = async function(index){
+  const t = tags[index];
+  shopInput.value = t.shop || '';
+  productInput.value = t.product || '';
+  priceInput.value = t.price || '';
+  upiInput.value = t.upi || '';
+  templateSelect.value = t.template || 'big';
+  themeSelect.value = t.theme || 'blue';
+  // can't populate file input for security; user can re-upload if needed
+  tags.splice(index,1);
+  renderTagsTable(); renderSheet();
+}
+
+// delete
+window.deleteTag = function(index){
+  if(!confirm('Delete this tag?')) return;
+  tags.splice(index,1);
+  renderTagsTable(); renderSheet();
+}
+
+// compute grid columns & rows
+function gridToColsRows(gridStr){
+  if(gridStr === '3x5') return {cols:3, rows:5};
+  if(gridStr === '4x6') return {cols:4, rows:6};
+  if(gridStr === '6x10') return {cols:6, rows:10};
+  return {cols:3, rows:5};
+}
+
+// render sheet (optionally accept array override for preview only)
+async function renderSheet(overrideTags=null){
+  const data = overrideTags || tags;
+  // set margin & gap CSS variables (mm -> px conversion in CSS used by print; but we set in mm string)
+  const marginMm = Number(marginInput.value || 10);
+  const gapMm = Number(gapInput.value || 8);
+  document.documentElement.style.setProperty('--page-margin-mm', marginMm + 'mm');
+  document.documentElement.style.setProperty('--tag-gap', gapMm + 'mm');
+
+  // set grid class on sheetInner
+  const grid = gridSelect.value;
+  sheetInner.classList.remove('grid-3x5','grid-4x6','grid-6x10');
+  if(grid === '3x5') sheetInner.classList.add('grid-3x5');
+  if(grid === '4x6') sheetInner.classList.add('grid-4x6');
+  if(grid === '6x10') sheetInner.classList.add('grid-6x10');
+
+  // clear
+  sheetInner.innerHTML = '';
+
+  // based on grid, total slots
+  const {cols, rows} = gridToColsRows(grid);
+  const totalSlots = cols * rows;
+
+  // prepare tag elements for each slot (use blank for empty)
+  for(let i=0;i<totalSlots;i++){
+    const slot = document.createElement('div');
+    slot.style.width = '100%';
+    slot.style.height = ( (sheetInner.clientHeight / rows) || (297/rows) ) + 'px';
+    // pick tag data
+    const t = data[i] || null;
+    const tagDiv = document.createElement('div');
+    tagDiv.className = 'tag ' + (t? t.template : 'big');
+    // add theme wrapper class on sheet for visual highlight
+    const themeWrapClass = (t && t.theme === 'red')? 'theme-red' : (t && t.theme==='min' ? 'theme-min': 'theme-blue');
+    tagDiv.classList.add(); // no change; theme applied to sheet elements via container class
+    // inner HTML
+    tagDiv.innerHTML = `
+      ${t && t.logoData ? `<img src="${t.logoData}" class="logo">` : ''}
+      <div class="shop">${escapeHtml((t && t.shop) || '')}</div>
+      <div class="product">${escapeHtml((t && t.product) || '')}</div>
+      <div class="price"> ${t? '₹ ' + escapeHtml(t.price) : ''} </div>
+    `;
+    // QR
+    if(t && t.upi){
+      const qrCanvas = document.createElement('canvas');
+      const size = 72;
+      qrCanvas.width = size; qrCanvas.height = size;
+      new QRious({element: qrCanvas, value: buildUpi(t.upi, t.shop, t.price), size});
+      const qrWrapper = document.createElement('div');
+      qrWrapper.className = 'qr';
+      qrWrapper.appendChild(qrCanvas);
+      tagDiv.appendChild(qrWrapper);
+    }
+    // apply theme style to tag
+    tagDiv.classList.add('theme-' + (t ? t.theme : 'blue'));
+    slot.appendChild(tagDiv);
+    sheetInner.appendChild(slot);
+  }
+}
+
+// small helper to build UPI uri
+function buildUpi(pa, pn, am){
+  if(!pa) return '';
+  let uri = `upi://pay?pa=${encodeURIComponent(pa)}&pn=${encodeURIComponent(pn||'')}&cu=INR`;
+  if(am && !isNaN(Number(am)) && Number(am)>0) uri += `&am=${Number(am).toFixed(2)}`;
+  return uri;
+}
+
+// escape html
+function escapeHtml(s){ return String(s||'').replace(/[&<>"'`=\/]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;","`":"&#96;","/":"&#47;"}[c])); }
+
+// export sheet as PNG (use html2canvas-like approach: draw via canvas manually)
+exportPngBtn.addEventListener('click', async ()=>{
+  await renderSheet(); // ensure current render
+  // convert sheet (which is HTML) to canvas by drawing high-res A4 sized canvas with tags content
+  const a4w = 1240; const a4h = 1754; // px (approx 150dpi)
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = a4w; exportCanvas.height = a4h;
+  const ectx = exportCanvas.getContext('2d');
+  // fill white
+  ectx.fillStyle = '#fff'; ectx.fillRect(0,0,a4w,a4h);
+
+  // replicate layout: use DOM data (tags array) to draw tag rectangles and text
+  const grid = gridSelect.value; const {cols, rows} = gridToColsRows(grid);
+  const margin = Number(marginInput.value || 10) * (a4w / 210); // mm->px approx
+  const gap = Number(gapInput.value || 8) * (a4w / 210);
+  const innerW = a4w - margin*2;
+  const innerH = a4h - margin*2;
+  const cellW = (innerW - gap*(cols-1)) / cols;
+  const cellH = (innerH - gap*(rows-1)) / rows;
+
+  // function to draw single tag drawn from tags array or empty
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const idx = r*cols + c;
+      const x = margin + c*(cellW + gap);
+      const y = margin + r*(cellH + gap);
+      // draw white box
+      ectx.fillStyle = '#fff';
+      roundRect(ectx, x, y, cellW, cellH, 10);
+      ectx.fill();
+      ectx.strokeStyle = '#e6eefc'; ectx.stroke();
+      const t = tags[idx] || null;
+      if(t){
+        // shop
+        ectx.fillStyle = '#0b1220'; ectx.font = '700 24px Arial';
+        ectx.textAlign = 'center';
+        ectx.fillText(t.shop || '', x + cellW/2, y + 36);
+        // product
+        ectx.fillStyle = '#334155'; ectx.font = '14px Arial';
+        ectx.fillText(t.product || '', x + cellW/2, y + 64);
+        // price
+        ectx.fillStyle = '#e60000'; ectx.font = '700 28px Arial';
+        ectx.fillText('₹ ' + String(t.price), x + cellW/2, y + 110);
+        // logo if present
+        if(t.logoData){
+          const img = await loadImage(t.logoData);
+          const lw = Math.min(56, cellW*0.18);
+          ectx.drawImage(img, x + 8, y + 8, lw, lw);
+        }
+        // QR if present
+        if(t.upi){
+          const qrCan = document.createElement('canvas');
+          const size = Math.min(96, Math.floor(cellW*0.22));
+          new QRious({element: qrCan, value: buildUpi(t.upi, t.shop, t.price), size});
+          const img = await loadImage(qrCan.toDataURL());
+          ectx.drawImage(img, x + cellW/2 - size/2, y + cellH - size - 12, size, size);
+        }
+      }
+    }
+  }
+
+  // download PNG
+  const a = document.createElement('a');
+  a.href = exportCanvas.toDataURL('image/png');
+  a.download = `price-tag-sheet_${new Date().toISOString().slice(0,10)}.png`;
+  a.click();
+});
+
+// helper load image
+function loadImage(src){
+  return new Promise((res,rej)=>{
+    const img = new Image();
+    img.onload = ()=> res(img);
+    img.onerror = ()=> res(null);
+    img.src = src;
+  });
+}
+
+// export PDF (A4) uses jsPDF by converting a canvas image
+exportPdfBtn.addEventListener('click', async ()=>{
+  // create same export canvas as PNG
+  const a4w = 1240; const a4h = 1754;
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = a4w; exportCanvas.height = a4h;
+  const ectx = exportCanvas.getContext('2d');
+  ectx.fillStyle = '#fff'; ectx.fillRect(0,0,a4w,a4h);
+  const grid = gridSelect.value; const {cols, rows} = gridToColsRows(grid);
+  const margin = Number(marginInput.value || 10) * (a4w / 210); // mm->px approx
+  const gap = Number(gapInput.value || 8) * (a4w / 210);
+  const innerW = a4w - margin*2;
+  const innerH = a4h - margin*2;
+  const cellW = (innerW - gap*(cols-1)) / cols;
+  const cellH = (innerH - gap*(rows-1)) / rows;
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const idx = r*cols + c;
+      const x = margin + c*(cellW + gap);
+      const y = margin + r*(cellH + gap);
+      ectx.fillStyle = '#fff';
+      roundRect(ectx, x, y, cellW, cellH, 10);
+      ectx.fill();
+      ectx.strokeStyle = '#e6eefc'; ectx.stroke();
+      const t = tags[idx] || null;
+      if(t){
+        ectx.fillStyle = '#0b1220'; ectx.font = '700 24px Arial'; ectx.textAlign = 'center';
+        ectx.fillText(t.shop || '', x + cellW/2, y + 36);
+        ectx.fillStyle = '#334155'; ectx.font = '14px Arial';
+        ectx.fillText(t.product || '', x + cellW/2, y + 64);
+        ectx.fillStyle = '#e60000'; ectx.font = '700 28px Arial';
+        ectx.fillText('₹ ' + String(t.price), x + cellW/2, y + 110);
+        if(t.logoData){
+          const img = await loadImage(t.logoData);
+          const lw = Math.min(56, cellW*0.18);
+          ectx.drawImage(img, x + 8, y + 8, lw, lw);
+        }
+        if(t.upi){
+          const qrCan = document.createElement('canvas');
+          const size = Math.min(96, Math.floor(cellW*0.22));
+          new QRious({element: qrCan, value: buildUpi(t.upi, t.shop, t.price), size});
+          const img = await loadImage(qrCan.toDataURL());
+          ectx.drawImage(img, x + cellW/2 - size/2, y + cellH - size - 12, size, size);
+        }
+      }
+    }
+  }
+
+  // convert to pdf
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('portrait','mm','a4');
+  const imgData = exportCanvas.toDataURL('image/png');
+  pdf.addImage(imgData,'PNG',0,0,210,297);
+  pdf.save(`price-tag-sheet_${new Date().toISOString().slice(0,10)}.pdf`);
+});
+
+// print
+printBtnTop.addEventListener('click', async ()=>{
+  // ensure sheet rendering in DOM for print
+  await renderSheet();
+  window.print();
+});
+
+// save sheet history
+saveSheetBtn.addEventListener('click', ()=>{
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const rec = {time: new Date().toLocaleString(), tags: tags.slice(), grid: gridSelect.value, margin: marginInput.value, gap: gapInput.value};
+  arr.push(rec);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
+  loadHistory();
+  alert('Sheet saved to history');
+});
+
+// load history into side list
+function loadHistory(){
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  sheetHistoryEl.innerHTML = '';
+  if(!arr.length) { sheetHistoryEl.innerHTML = '<div class="small-muted">No saved sheets</div>'; return; }
+  arr.slice().reverse().forEach((rec, idx) => {
+    const d = document.createElement('div');
+    d.className = 'history-item';
+    d.innerHTML = `<div style="flex:1">
+      <strong>${rec.tags.length} tags</strong><br>
+      <small class="small-muted">${rec.time}</small>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <button class="btn ghost" onclick='previewHistory(${arr.length-1-idx})'>Preview</button>
+      <button class="btn primary" onclick='loadHistoryItem(${arr.length-1-idx})'>Load</button>
+      <button class="btn red" onclick='deleteHistoryItem(${arr.length-1-idx})'>Delete</button>
+    </div>`;
+    sheetHistoryEl.appendChild(d);
+  });
+}
+window.previewHistory = function(index){
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const rec = arr[index];
+  if(!rec) return alert('Not found');
+  // render rec.tags in a new window as PNG
+  const w = window.open('');
+  w.document.write('<title>Preview</title>');
+  // simple preview: iterate and show tags as images using small canvas render
+  rec.tags.forEach(async (t)=>{ /* skipping detailed preview for speed */ });
+  w.document.close();
+}
+window.loadHistoryItem = function(index){
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const rec = arr[index];
+  if(!rec) return alert('Not found');
+  // load tags
+  tags.splice(0,tags.length);
+  rec.tags.forEach(t=> tags.push(t));
+  gridSelect.value = rec.grid || '3x5';
+  marginInput.value = rec.margin || 10;
+  gapInput.value = rec.gap || 8;
+  renderTagsTable(); renderSheet();
+}
+window.deleteHistoryItem = function(index){
+  if(!confirm('Delete saved sheet?')) return;
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  arr.splice(index,1);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
+  loadHistory();
+}
+
+// initial load
+loadHistory();
+renderTagsTable();
+renderSheet();
+
+// utility: rounded rect for canvas export
+function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath(); }
+
+// drag & drop support for logo input onto preview (optional)
+// ... not implemented but can be added
+
+</script>
+</body>
+</html>

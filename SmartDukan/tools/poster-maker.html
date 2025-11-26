@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="hi">
+<head><meta charset="utf-8"><meta name="viewport"content="width=device-width,initial-scale=1"><title>Poster Maker - SmartDukan</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>.wrap{max-width:900px;margin:18px auto;background:#fff;padding:18px;border-radius:10px}.poster{width:600px;height:800px;background:#fffbeb;padding:20px;border-radius:8px;margin:12px auto;display:flex;flex-direction:column;justify-content:center;align-items:center}</style>
+</head>
+<body>
+<header class="site-header"><div class="logo">SmartDukan</div></header>
+<div class="wrap">
+  <h2>Offer Poster Maker</h2>
+  <input id="offerTitle" placeholder="Big Offer! 50% Off"/>
+  <input id="offerSub" placeholder="Description"/>
+  <div style="margin-top:8px">
+    <button class="btn" id="genPoster">Create Poster</button>
+    <button class="btn ghost" id="downloadPoster">Download Poster</button>
+  </div>
+  <div id="previewArea"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="../assets/js/app.js"></script>
+<script>
+SD.q('#genPoster').addEventListener('click', ()=>{
+  const title = SD.q('#offerTitle').value || 'Big Offer!';
+  const sub = SD.q('#offerSub').value || 'Amazing deals';
+  SD.q('#previewArea').innerHTML = `<div class="poster"><h1 style="font-size:48px;margin:0">${title}</h1><p style="font-size:20px">${sub}</p></div>`;
+});
+SD.q('#downloadPoster').addEventListener('click', async ()=>{
+  const el = SD.q('#previewArea .poster'); if(!el){alert('Create poster first');return;}
+  const canvas = await html2canvas(el); canvas.toBlob(b=>SD.downloadBlob('poster.png', b));
+});
+</script>
+</body>
+</html>

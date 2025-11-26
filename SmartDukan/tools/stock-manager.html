@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Stock Manager — SmartDukan</title>
+
+  <!-- Use your global professional stylesheet -->
+  <link rel="stylesheet" href="../assets/css/style.css">
+
+  <style>
+    /* Page-specific styles (kept minimal so global style applies) */
+    .page-wrap { padding: 28px 0; }
+    .stock-grid { display: grid; grid-template-columns: 380px 1fr; gap: 18px; max-width:1100px; margin:0 auto; }
+    .card { background:#fff; padding:16px; border-radius:12px; box-shadow:0 6px 20px rgba(2,6,23,0.04); border:1px solid rgba(11,18,32,0.04); }
+    .card h3 { margin:0 0 10px 0; color:#071241 }
+    .input, input[type="number"], textarea, select { width:100%; padding:10px; border-radius:8px; border:1px solid #e6eefc; margin-top:8px; font-size:14px }
+    .btn { display:inline-block; padding:10px 12px; border-radius:8px; border:0; cursor:pointer; font-weight:700; }
+    .btn.primary { background:#2563eb; color:white }
+    .btn.warn { background:#f59e0b; color:white }
+    .btn.danger { background:#ef4444; color:white }
+    .btn.ghost { background:transparent; border:1px solid #e6eefc; color:#071241 }
+    .small { font-size:13px; color:#6b7280 }
+    .table { width:100%; border-collapse:collapse; margin-top:12px; }
+    .table th, .table td { padding:10px; border-bottom:1px solid #f1f5f9; text-align:left; }
+    .tag-low { background:#fff1f2; color:#b91c1c; padding:6px 8px; border-radius:8px; font-weight:700; font-size:13px }
+    .tag-ok { background:#ecfeff; color:#065f46; padding:6px 8px; border-radius:8px; font-weight:700; font-size:13px }
+    .actions button { margin-right:6px; margin-top:6px; }
+    .toast { position:fixed; right:18px; bottom:18px; background:rgba(8,145,178,0.95); color:#fff; padding:12px 16px; border-radius:10px; display:none; box-shadow:0 8px 30px rgba(2,6,23,0.12); z-index:9999 }
+    .alerts-panel { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap }
+    .reorder-row { display:flex; gap:8px; align-items:center; margin-bottom:8px }
+    .reorder-row input[type="number"] { width:120px }
+    .meta { color:#6b7280; font-size:13px; margin-top:8px }
+    @media (max-width:920px){ .stock-grid{grid-template-columns:1fr; padding:0 12px} }
+  </style>
+</head>
+<body>
+
+  <!-- GLOBAL HEADER (matches your site) -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="../index.html" style="text-decoration:none;color:white">
+        <img src="../assets/img/icons/stock.png" style="width:36px;height:36px;margin-right:8px;vertical-align:middle" alt="logo">
+        <span class="brand-text">SmartDukan — Stock</span>
+      </a>
+      <nav class="nav" style="display:flex;gap:8px">
+        <a class="nav-link" href="../index.html">Home</a>
+        <a class="nav-link" href="khata-book.html">Khata</a>
+        <a class="nav-link active" href="stock-manager.html">Stock</a>
+        <a class="nav-link" href="bill-generator.html">Bill</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="stock-grid container">
+
+      <!-- LEFT: add/edit + quick actions + alerts -->
+      <div class="card">
+        <h3>📦 Add / Update Item</h3>
+
+        <label class="small">Product Name</label>
+        <input id="pName" class="input" placeholder="e.g. Atta 5kg">
+
+        <label class="small">SKU (optional)</label>
+        <input id="pSKU" class="input" placeholder="e.g. ATTA-5KG">
+
+        <label class="small">Quantity</label>
+        <input id="pQty" type="number" min="0" class="input" value="0">
+
+        <label class="small">Price (₹)</label>
+        <input id="pPrice" type="number" min="0" class="input" value="0">
+
+        <label class="small">Low-stock threshold</label>
+        <input id="pLow" type="number" min="0" class="input" value="5">
+
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button id="saveBtn" class="btn primary">Save Item</button>
+          <button id="clearBtn" class="btn ghost">Clear</button>
+        </div>
+
+        <hr style="margin:14px 0">
+
+        <h3>🔁 Quick Stock</h3>
+        <label class="small">Search Item</label>
+        <input id="selectItem" class="input" placeholder="Type to find e.g. Atta">
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="adjQty" type="number" class="input" style="width:120px" placeholder="Qty">
+          <button id="addStockBtn" class="btn primary">+ Add</button>
+          <button id="reduceStockBtn" class="btn danger">- Reduce</button>
+        </div>
+
+        <div class="meta">Tip: Set low-stock threshold to get alerts. Use Quick Stock to add/remove fast.</div>
+
+        <hr style="margin:14px 0">
+
+        <h3>⚠️ Alert Center</h3>
+        <div id="alerts" class="alerts-panel">
+          <!-- low-stock chips will appear here -->
+        </div>
+
+        <div style="margin-top:10px">
+          <button id="openReorder" class="btn warn">Open Reorder List</button>
+          <button id="clearLow" class="btn ghost">Mark All Notified</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: inventory table + reorder panel hidden below -->
+      <div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3>Inventory</h3>
+            <div style="display:flex;gap:8px">
+              <input id="q" class="input" style="width:260px" placeholder="Search by name or SKU">
+              <select id="filterLow" class="input" style="width:160px">
+                <option value="all">All items</option>
+                <option value="low">Low stock only</option>
+                <option value="ok">Sufficient stock</option>
+              </select>
+              <button id="exportCsv" class="btn ghost">Export CSV</button>
+            </div>
+          </div>
+
+          <table class="table" id="itemsTable">
+            <thead>
+              <tr><th>Product</th><th>SKU</th><th>Qty</th><th>Price</th><th>Low At</th><th>Actions</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+
+          <div style="margin-top:12px"><strong>Total SKUs:</strong> <span id="totalCount">0</span></div>
+        </div>
+
+        <!-- Reorder List / Management -->
+        <div class="card" style="margin-top:14px;">
+          <h3>📝 Automated Reorder List</h3>
+          <div class="meta">Items below or equal to threshold are auto added here. Adjust reorder qty and export or email supplier.</div>
+
+          <div id="reorderList" style="margin-top:12px"></div>
+
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button id="exportReorder" class="btn primary">Export Reorder CSV</button>
+            <button id="emailReorder" class="btn warn">Email Reorder (mailto)</button>
+            <button id="clearReorderNotified" class="btn ghost">Mark Reordered</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- GLOBAL FOOTER -->
+  <footer class="site-footer" style="margin-top:28px">
+    <div class="container footer-inner">
+      <div>© <span id="year"></span> SmartDukan — Inventory</div>
+      <div class="footer-links"><a href="../index.html">Home</a></div>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+/* Stock Manager with Low-stock Alerts + Automated Reorder List
+   - Single-file implementation
+   - localStorage key: smartStockItemsV2
+   - Reorder list auto-created when qty <= low
+   - Can export reorder as CSV and send mailto:
+*/
+
+const STORAGE_KEY = "smartStockItemsV2";
+let items = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+// DOM refs
+const pName = document.getElementById("pName");
+const pSKU = document.getElementById("pSKU");
+const pQty = document.getElementById("pQty");
+const pPrice = document.getElementById("pPrice");
+const pLow = document.getElementById("pLow");
+const saveBtn = document.getElementById("saveBtn");
+const clearBtn = document.getElementById("clearBtn");
+
+const qInput = document.getElementById("q");
+const filterLow = document.getElementById("filterLow");
+const itemsTable = document.querySelector("#itemsTable tbody");
+const totalCount = document.getElementById("totalCount");
+
+const selectItem = document.getElementById("selectItem");
+const adjQty = document.getElementById("adjQty");
+const addStockBtn = document.getElementById("addStockBtn");
+const reduceStockBtn = document.getElementById("reduceStockBtn");
+
+const exportCsvBtn = document.getElementById("exportCsv");
+
+const alertsEl = document.getElementById("alerts");
+const reorderListEl = document.getElementById("reorderList");
+const openReorderBtn = document.getElementById("openReorder");
+const clearLowBtn = document.getElementById("clearLow");
+
+const exportReorderBtn = document.getElementById("exportReorder");
+const emailReorderBtn = document.getElementById("emailReorder");
+const clearReorderNotifiedBtn = document.getElementById("clearReorderNotified");
+
+const toast = document.getElementById("toast");
+
+let editIndex = -1;
+
+// Helpers
+function saveItems() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+function showToast(msg, duration = 3500) {
+  toast.textContent = msg;
+  toast.style.display = "block";
+  setTimeout(() => { toast.style.display = "none"; }, duration);
+}
+
+function isLow(it) { return Number(it.qty) <= Number(it.low); }
+
+// Render inventory table
+function renderList() {
+  const q = qInput.value.trim().toLowerCase();
+  const filter = filterLow.value;
+
+  itemsTable.innerHTML = "";
+
+  const filtered = items.filter(it => {
+    const text = (it.name + " " + (it.sku||"")).toLowerCase();
+    if (q && !text.includes(q)) return false;
+    if (filter === "low") return isLow(it);
+    if (filter === "ok") return !isLow(it);
+    return true;
+  });
+
+  filtered.forEach((it, idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(it.name)}</strong></td>
+      <td>${escapeHtml(it.sku || "")}</td>
+      <td>${it.qty} ${isLow(it) ? '<span class="tag-low"> LOW</span>' : '<span class="tag-ok"> OK</span>'}</td>
+      <td>₹ ${Number(it.price).toFixed(2)}</td>
+      <td>${it.low}</td>
+      <td class="actions">
+        <button class="btn" style="background:#f59e0b;color:white" onclick="editItem(${items.indexOf(it)})">Edit</button>
+        <button class="btn" style="background:#ef4444;color:white" onclick="deleteItem(${items.indexOf(it)})">Delete</button>
+        <button class="btn" style="background:#10b981;color:white" onclick="quickAdd(${items.indexOf(it)})">+Stock</button>
+        <button class="btn" style="background:#ef4444;color:white" onclick="quickReduce(${items.indexOf(it)})">-Stock</button>
+      </td>
+    `;
+    itemsTable.appendChild(tr);
+  });
+
+  totalCount.textContent = items.length;
+  renderAlerts();
+  renderReorder();
+}
+
+// escape html
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"'`=\/]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;","`":"&#96;","=":"&#61;", "/":"&#47;"}[s]));
+}
+
+// Add / Update
+saveBtn.addEventListener("click", () => {
+  const name = pName.value.trim();
+  const sku = pSKU.value.trim();
+  const qty = Number(pQty.value) || 0;
+  const price = Number(pPrice.value) || 0;
+  const low = Number(pLow.value) || 0;
+
+  if (!name) { alert("Product name required"); return; }
+
+  if (editIndex > -1) {
+    items[editIndex] = { name, sku, qty, price, low, notified: items[editIndex].notified || false };
+    showToast("Item updated");
+    editIndex = -1;
+    saveBtn.textContent = "Save Item";
+  } else {
+    // merge if same SKU or same name (case-insensitive)
+    const duplicateIndex = items.findIndex(i => (i.sku && sku && i.sku === sku) || (i.name.toLowerCase() === name.toLowerCase() && !sku));
+    if (duplicateIndex > -1) {
+      items[duplicateIndex].qty = Number(items[duplicateIndex].qty) + qty;
+      items[duplicateIndex].price = price;
+      items[duplicateIndex].low = low;
+      showToast("Existing item updated (merged qty)");
+    } else {
+      items.push({ name, sku, qty, price, low, notified: false });
+      showToast("Item added");
+    }
+  }
+
+  saveItems();
+  renderList();
+  clearForm();
+});
+
+// Clear form
+clearBtn.addEventListener("click", clearForm);
+function clearForm() {
+  pName.value = ""; pSKU.value = ""; pQty.value = 0; pPrice.value = 0; pLow.value = 5;
+  editIndex = -1; saveBtn.textContent = "Save Item";
+}
+
+// Edit
+function editItem(index) {
+  const it = items[index];
+  pName.value = it.name;
+  pSKU.value = it.sku || "";
+  pQty.value = it.qty;
+  pPrice.value = it.price;
+  pLow.value = it.low || 5;
+  editIndex = index;
+  saveBtn.textContent = "Update Item";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// Delete
+function deleteItem(index) {
+  if (!confirm("Delete item?")) return;
+  items.splice(index, 1);
+  saveItems();
+  renderList();
+  showToast("Item deleted");
+}
+
+// quick add/reduce
+function quickAdd(index) {
+  const qty = Number(prompt("Enter quantity to add:", "1"));
+  if (isNaN(qty) || qty <= 0) return;
+  items[index].qty = Number(items[index].qty) + qty;
+  saveItems(); renderList();
+  showToast("Stock added");
+}
+
+function quickReduce(index) {
+  const qty = Number(prompt("Enter quantity to reduce (sell):", "1"));
+  if (isNaN(qty) || qty <= 0) return;
+  items[index].qty = Number(items[index].qty) - qty;
+  if (items[index].qty < 0) items[index].qty = 0;
+  saveItems(); renderList();
+  showToast("Stock reduced");
+}
+
+// Quick Stock Actions from left pane
+document.getElementById("addStockBtn").addEventListener("click", () => {
+  const name = selectItem.value.trim().toLowerCase();
+  if (!name) { alert("Type product name to find"); return; }
+  const qty = Number(adjQty.value) || 0;
+  if (qty <= 0) { alert("Enter quantity > 0"); return; }
+  const idx = items.findIndex(i => i.name.toLowerCase().includes(name) || (i.sku && i.sku.toLowerCase().includes(name)));
+  if (idx === -1) { alert("Item not found"); return; }
+  items[idx].qty = Number(items[idx].qty) + qty;
+  saveItems(); renderList(); adjQty.value=""; showToast("Stock added");
+});
+document.getElementById("reduceStockBtn").addEventListener("click", () => {
+  const name = selectItem.value.trim().toLowerCase();
+  if (!name) { alert("Type product name to find"); return; }
+  const qty = Number(adjQty.value) || 0;
+  if (qty <= 0) { alert("Enter quantity > 0"); return; }
+  const idx = items.findIndex(i => i.name.toLowerCase().includes(name) || (i.sku && i.sku.toLowerCase().includes(name)));
+  if (idx === -1) { alert("Item not found"); return; }
+  items[idx].qty = Number(items[idx].qty) - qty;
+  if (items[idx].qty < 0) items[idx].qty = 0;
+  saveItems(); renderList(); adjQty.value=""; showToast("Stock reduced");
+});
+
+// Search & filter
+qInput.addEventListener("input", renderList);
+filterLow.addEventListener("change", renderList);
+
+// Export CSV (inventory)
+exportCsvBtn.addEventListener("click", () => {
+  if (!items.length) { alert("No items to export"); return; }
+  const header = ["name","sku","qty","price","low"];
+  const rows = items.map(i => [i.name, i.sku || "", i.qty, i.price, i.low]);
+  let csv = header.join(",") + "\n";
+  rows.forEach(r => { csv += r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(",") + "\n"; });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `smartdukan_inventory_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast("CSV exported");
+});
+
+// Alerts rendering
+function renderAlerts() {
+  alertsEl.innerHTML = "";
+  const lowItems = items.filter(isLow);
+  if (!lowItems.length) {
+    alertsEl.innerHTML = `<div class="small">All good — no low stock items</div>`;
+    return;
+  }
+
+  // show chips for low items
+  lowItems.forEach((it, idx) => {
+    const chip = document.createElement("div");
+    chip.style.display = "flex";
+    chip.style.alignItems = "center";
+    chip.style.gap = "8px";
+    chip.style.padding = "8px";
+    chip.style.borderRadius = "10px";
+    chip.style.background = "#fff7ed";
+    chip.style.border = "1px solid #fde3c9";
+
+    chip.innerHTML = `<div style="font-weight:700;color:#b45309">${escapeHtml(it.name)}</div>
+                      <div class="small">Qty: ${it.qty} — Low at ${it.low}</div>
+                      <button class="btn ghost" style="margin-left:8px" onclick="scrollToItem('${it.name}')">View</button>`;
+
+    alertsEl.appendChild(chip);
+  });
+
+  // toast notification
+  showToast(`⚠️ Low stock: ${lowItems.map(i => i.name).slice(0,4).join(", ")}${lowItems.length>4? "..." : ""}`, 5000);
+}
+
+// Scroll to item (search)
+function scrollToItem(name) {
+  qInput.value = name;
+  renderList();
+  // highlight first match visually
+  // (simple: flash)
+  const rows = Array.from(itemsTable.querySelectorAll("tr"));
+  for (let r of rows) {
+    if (r.innerText.toLowerCase().includes(name.toLowerCase())) {
+      r.style.background = "#fff4e6";
+      setTimeout(()=> r.style.background = "", 1800);
+      window.scrollTo({ top: r.getBoundingClientRect().top + window.scrollY - 120, behavior: "smooth" });
+      break;
+    }
+  }
+}
+
+// Reorder list rendering
+function renderReorder() {
+  reorderListEl.innerHTML = "";
+  const lowItems = items.filter(isLow);
+
+  if (!lowItems.length) {
+    reorderListEl.innerHTML = `<div class="small">No items to reorder</div>`;
+    return;
+  }
+
+  lowItems.forEach((it, idx) => {
+    // recommended order qty = max(low*2 - qty, 1) (simple heuristic)
+    const rec = Math.max((Number(it.low) * 2) - Number(it.qty), 1);
+    const row = document.createElement("div");
+    row.className = "reorder-row";
+    row.innerHTML = `
+      <div style="flex:1">
+        <strong>${escapeHtml(it.name)}</strong><br>
+        <span class="small">SKU: ${escapeHtml(it.sku||"-")} | Current: ${it.qty} | Low at: ${it.low}</span>
+      </div>
+      <div>
+        <label class="small">Order Qty</label>
+        <input type="number" class="input" data-idx="${items.indexOf(it)}" value="${rec}">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn primary" onclick="markReordered(${items.indexOf(it)})">Mark Reordered</button>
+        <button class="btn ghost" onclick="removeFromReorder(${items.indexOf(it)})">Ignore</button>
+      </div>
+    `;
+    reorderListEl.appendChild(row);
+  });
+}
+
+// Mark reordered: set notified flag or optionally increase qty
+function markReordered(index) {
+  // get order qty input value
+  const inputs = reorderListEl.querySelectorAll("input[data-idx]");
+  let qty = 0;
+  inputs.forEach(inp => {
+    if (Number(inp.dataset.idx) === index) qty = Number(inp.value) || 0;
+  });
+
+  // Option: increase stock immediately by ordered qty
+  if (qty > 0) items[index].qty = Number(items[index].qty) + qty;
+
+  items[index].notified = true; // marked as ordered / notified
+  saveItems(); renderList();
+  showToast("Marked reordered");
+}
+
+// Remove from reorder (ignore)
+function removeFromReorder(index) {
+  items[index].notified = true; // won't show in reorder again until qty changes
+  saveItems(); renderList();
+  showToast("Ignored for reorder");
+}
+
+// open reorder panel (scroll)
+openReorderBtn.addEventListener("click", () => {
+  window.scrollTo({ top: reorderListEl.getBoundingClientRect().top + window.scrollY - 80, behavior: "smooth" });
+});
+
+// clear low notifications (mark all notified)
+clearLowBtn.addEventListener("click", () => {
+  items.forEach(i => i.notified = true);
+  saveItems(); renderList();
+  showToast("All alerts marked notified");
+});
+
+// Export Reorder CSV
+exportReorderBtn.addEventListener("click", () => {
+  const lowItems = items.filter(isLow);
+  if (!lowItems.length) { alert("No items to reorder"); return; }
+
+  // build rows using order quantity from inputs (fall back to heuristic)
+  const rows = lowItems.map(it => {
+    const idx = items.indexOf(it);
+    const inp = reorderListEl.querySelector(`input[data-idx="${idx}"]`);
+    const orderQty = inp ? Number(inp.value) || 0 : Math.max(Number(it.low)*2 - Number(it.qty),1);
+    return [it.name, it.sku||"", it.qty, it.low, orderQty];
+  });
+
+  const header = ["name","sku","current_qty","low_at","order_qty"];
+  let csv = header.join(",") + "\n";
+  rows.forEach(r => { csv += r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(",") + "\n"; });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `reorder_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast("Reorder CSV exported");
+});
+
+// Email Reorder (mailto). This opens the default email client with prefilled body
+emailReorderBtn.addEventListener("click", () => {
+  const lowItems = items.filter(isLow);
+  if (!lowItems.length) { alert("No items to reorder"); return; }
+
+  let body = `Reorder Request from SmartDukan (%20=space)\n\n`;
+  lowItems.forEach(it => {
+    const idx = items.indexOf(it);
+    const inp = reorderListEl.querySelector(`input[data-idx="${idx}"]`);
+    const orderQty = inp ? Number(inp.value) || 0 : Math.max(Number(it.low)*2 - Number(it.qty),1);
+    body += `${it.name} | SKU: ${it.sku||"-"} | Current: ${it.qty} | Order: ${orderQty}\n`;
+  });
+
+  // Replace with supplier email if you want, or let user add recipient in mail client
+  const subject = encodeURIComponent("Reorder Request - SmartDukan");
+  const mailto = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+
+  // Optionally: If you later integrate an email API, you can send using fetch:
+  /*
+  fetch('https://your-email-api/send', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ to: 'supplier@example.com', subject: 'Reorder', body })
+  }).then(r=>r.json()).then(res=>console.log(res));
+  */
+});
+
+// Mark reordered all (clear)
+clearReorderNotifiedBtn.addEventListener("click", () => {
+  items.forEach(i => i.notified = true);
+  saveItems(); renderList();
+  showToast("Marked all as reordered/notified");
+});
+
+// Utilities: functions invoked from HTML (global)
+window.editItem = editItem;
+window.deleteItem = deleteItem;
+window.quickAdd = quickAdd;
+window.quickReduce = quickReduce;
+window.markReordered = markReordered;
+window.removeFromReorder = removeFromReorder;
+
+// init render
+renderList();
+
+// initial low alerts check (toast done in renderAlerts)
+function checkLowOnLoad() {
+  const lows = items.filter(isLow && (i => !i.notified));
+  if (lows.length) {
+    // Already handled by renderAlerts()
+  }
+}
+checkLowOnLoad();
+
+// Auto-save when page unloaded (redundant but safe)
+window.addEventListener("beforeunload", () => saveItems());
+
+// set footer year
+document.getElementById("year").textContent = new Date().getFullYear();
+
+</script>
+
+</body>
+</html>

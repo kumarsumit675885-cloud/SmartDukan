@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bill Generator — SmartDukan</title>
+
+<link rel="stylesheet" href="../assets/css/style.css" />
+
+<style>
+.container {
+    max-width: 900px;
+    margin: auto;
+    background: #fff;
+    padding: 25px;
+    margin-top: 25px;
+    border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+}
+
+h2 { text-align: center; color: #005eff; margin-bottom: 20px; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+table th, table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+table th { background: #005eff; color: #fff; }
+
+.btn { padding: 10px 20px; background: #005eff; color: #fff; border: none; border-radius: 6px; cursor: pointer; margin-top: 15px; }
+.btn:hover { background: #003fb8; }
+
+.input-box { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+
+.total-box { font-size: 20px; font-weight: 600; margin-top: 10px; text-align: right; }
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">SmartDukan</div>
+</header>
+
+<div class="container">
+    <h2>🧾 Smart GST Bill Generator</h2>
+
+    <label>Date</label>
+    <input type="date" id="billDate" class="input-box">
+
+    <label>Customer Name</label>
+    <input type="text" id="customerName" class="input-box">
+
+    <label>Customer Mobile</label>
+    <input type="text" id="customerMobile" class="input-box">
+
+    <table id="billTable">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Price (₹)</th>
+                <th>Total (₹)</th>
+                <th>Remove</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <button class="btn" onclick="addRow()">+ Add Item</button>
+
+    <div class="total-box">Subtotal: ₹ <span id="subtotal">0</span></div>
+
+    <label>GST (%)</label>
+    <input type="number" id="gst" value="18" class="input-box" oninput="updateTotal()">
+
+    <div class="total-box">GST Amount: ₹ <span id="gstAmount">0</span></div>
+
+    <label>Discount (₹)</label>
+    <input type="number" id="discount" value="0" class="input-box" oninput="updateTotal()">
+
+    <label>Delivery Charge (₹)</label>
+    <input type="number" id="delivery" value="0" class="input-box" oninput="updateTotal()">
+
+    <div class="total-box">Grand Total: ₹ <span id="grandTotal">0</span></div>
+
+    <hr><br>
+
+    <h3>💰 Payment Details</h3>
+
+    <label>Cash Paid (₹)</label>
+    <input type="number" id="cashPaid" value="0" class="input-box" oninput="updatePayment()">
+
+    <label>Online Paid (₹)</label>
+    <input type="number" id="onlinePaid" value="0" class="input-box" oninput="updatePayment()">
+
+    <div class="total-box">Total Paid: ₹ <span id="totalPaid">0</span></div>
+    <div class="total-box">Balance (Baki): ₹ <span id="balance">0</span></div>
+
+    <button class="btn" onclick="printBill()">Print Bill</button>
+    <button class="btn" onclick="sendWhatsapp()">Send via WhatsApp</button>
+
+</div>
+
+<script>
+// Set today's date
+document.getElementById("billDate").value = new Date().toISOString().split("T")[0];
+
+function addRow() {
+    let table = document.querySelector("#billTable tbody");
+    let row = document.createElement("tr");
+
+    row.innerHTML = `
+        <td><input class="input-box itemName"></td>
+        <td><input type="number" class="input-box qty" value="1" oninput="updateTotal()"></td>
+        <td><input type="number" class="input-box price" value="0" oninput="updateTotal()"></td>
+        <td class="total">0</td>
+        <td><button class="btn" style="background:red" onclick="this.parentElement.parentElement.remove(); updateTotal();">X</button></td>
+    `;
+
+    table.appendChild(row);
+    updateTotal();
+}
+
+function updateTotal() {
+    let rows = document.querySelectorAll("#billTable tbody tr");
+    let subtotal = 0;
+
+    rows.forEach(row => {
+        let qty = row.querySelector(".qty").value;
+        let price = row.querySelector(".price").value;
+        let total = qty * price;
+
+        row.querySelector(".total").innerText = total;
+        subtotal += total;
+    });
+
+    document.getElementById("subtotal").innerText = subtotal;
+
+    let gstPercent = document.getElementById("gst").value;
+    let gstAmount = (subtotal * gstPercent) / 100;
+    document.getElementById("gstAmount").innerText = gstAmount.toFixed(2);
+
+    let discount = Number(document.getElementById("discount").value);
+    let delivery = Number(document.getElementById("delivery").value);
+
+    let grand = subtotal + gstAmount - discount + delivery;
+    document.getElementById("grandTotal").innerText = grand.toFixed(2);
+
+    updatePayment();
+}
+
+function updatePayment() {
+    let cash = Number(document.getElementById("cashPaid").value);
+    let online = Number(document.getElementById("onlinePaid").value);
+
+    let paid = cash + online;
+    let grand = Number(document.getElementById("grandTotal").innerText);
+
+    document.getElementById("totalPaid").innerText = paid;
+    document.getElementById("balance").innerText = (grand - paid).toFixed(2);
+}
+
+function printBill() { window.print(); }
+
+function sendWhatsapp() {
+    let date = document.getElementById("billDate").value;
+    let name = document.getElementById("customerName").value;
+    let mobile = document.getElementById("customerMobile").value;
+
+    let subtotal = document.getElementById("subtotal").innerText;
+    let gstAmount = document.getElementById("gstAmount").innerText;
+    let grand = document.getElementById("grandTotal").innerText;
+
+    let cash = document.getElementById("cashPaid").value;
+    let online = document.getElementById("onlinePaid").value;
+    let balance = document.getElementById("balance").innerText;
+
+    let message =
+`🧾 *SMART DUKAN BILL*
+📅 Date: ${date}
+-----------------------
+Customer: ${name}
+
+Subtotal: ₹${subtotal}
+GST: ₹${gstAmount}
+Total: ₹${grand}
+-----------------------
+💰 Payment:
+Cash: ₹${cash}
+Online: ₹${online}
+Total Paid: ₹${Number(cash)+Number(online)}
+Balance: ₹${balance}
+-----------------------
+Thank you for shopping!`;
+
+    window.open(`https://wa.me/${mobile}?text=${encodeURIComponent(message)}`);
+}
+</script>
+
+</body>
+</html>

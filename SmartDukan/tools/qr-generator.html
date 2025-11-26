@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SmartDukan — Poster & UPI QR (Custom Premium)</title>
+
+<!-- QR lib and jsPDF (UMD) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+  :root{
+    --bg:#f6f8fb;
+    --card:#ffffff;
+    --text:#071241;
+    --muted:#6b7280;
+    --accent-blue: linear-gradient(180deg,#0ea5ff,#2563eb);
+    --accent-green: linear-gradient(180deg,#34d399,#059669);
+    --accent-neon: linear-gradient(135deg,#7c3aed,#06b6d4);
+  }
+
+  html,body{height:100%;margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+  .site-wrap{max-width:1100px;margin:18px auto;padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand img{width:44px;height:44px;border-radius:8px}
+  .brand h1{font-size:18px;margin:0}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+  .btn.primary{background:#2563eb;color:white}
+  .btn.ghost{background:transparent;border:1px solid rgba(7,18,65,0.08)}
+  .btn.accent{background:#06b6d4;color:#042a2b}
+  .flex{display:flex;gap:12px}
+  .panel{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.06);border:1px solid rgba(2,6,23,0.04)}
+  .left{flex:0 0 380px}
+  .right{flex:1}
+  .row{display:flex;gap:8px;align-items:center;margin-top:8px}
+  label{font-size:13px;color:var(--muted);display:block;margin-top:8px}
+  input[type="text"], input[type="number"], select, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eefc;font-size:14px;background:transparent}
+  input[type="file"]{font-size:13px}
+  small{color:var(--muted)}
+  .theme-picker{display:flex;gap:8px;margin-top:10px}
+  .theme-chip{padding:8px 10px;border-radius:10px;cursor:pointer;color:white;font-weight:700}
+  .theme-chip.blue{background:linear-gradient(90deg,#0ea5ff,#2563eb)}
+  .theme-chip.green{background:linear-gradient(90deg,#34d399,#059669)}
+  .theme-chip.neon{background:linear-gradient(90deg,#7c3aed,#06b6d4)}
+
+  /* preview area */
+  .preview-wrap{display:flex;gap:12px;align-items:flex-start}
+  .poster-preview{width:350px;height:auto;border-radius:12px;overflow:hidden;box-shadow:0 10px 40px rgba(2,6,23,0.18);border:6px solid rgba(255,255,255,0.06)}
+  .preview-canvas{display:block;width:100%;height:auto;background:white}
+
+  /* history list */
+  .history-list{max-height:320px;overflow:auto;margin-top:8px}
+  .history-item{padding:8px;border-radius:8px;background:rgba(2,6,23,0.03);margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .small-muted{font-size:13px;color:var(--muted)}
+
+  /* Dark mode */
+  .dark-mode{--bg:#0b1220;--card:#071226;--text:#ffffff;--muted:#94a3b8}
+  .dark-toggle{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:linear-gradient(90deg,#0f1724,#071237)}
+
+  /* responsive */
+  @media (max-width:980px){ .left{flex:1 1 100%} .preview-wrap{flex-direction:column;align-items:center} .poster-preview{width:320px} header{flex-direction:column;align-items:flex-start} }
+  /* print friendly */
+  @media print{
+    body *{visibility:hidden}
+    #printArea, #printArea *{visibility:visible}
+    #printArea{position:fixed;left:0;top:0;width:100%}
+  }
+
+  /* helper */
+  .muted{color:var(--muted)}
+  .gap{height:12px}
+</style>
+</head>
+<body>
+
+<div class="site-wrap" id="siteWrap">
+  <header>
+    <div class="brand">
+      <img src="../assets/img/icons/qr.png" alt="logo" onerror="this.style.display='none'">
+      <div>
+        <h1>SmartDukan — Poster & QR (Custom Premium)</h1>
+        <small class="muted">Create A4 printable posters with branded QR, frames, banner and themes</small>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="dark-toggle" id="darkToggle" title="Toggle Dark Mode" style="cursor:pointer">
+        <span id="darkLabel" style="color:white;font-weight:700">Dark: OFF</span>
+      </div>
+      <button class="btn ghost" id="saveHistoryBtn">Save to History</button>
+      <button class="btn primary" id="downloadPngBtn">Download PNG</button>
+      <button class="btn accent" id="downloadPdfBtn">Download PDF (A4)</button>
+      <button class="btn ghost" id="printBtn">Print</button>
+    </div>
+  </header>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <div class="left panel">
+      <h3>Poster Settings</h3>
+
+      <label>Shop Name</label>
+      <input type="text" id="shopNameInput" placeholder="My Shop / Dukaan">
+
+      <label>Tagline (optional)</label>
+      <input type="text" id="taglineInput" placeholder="Best Quality • Open 7 days">
+
+      <label>UPI ID (VPA)</label>
+      <input type="text" id="upiInput" placeholder="merchant@upi">
+
+      <label>Fixed Amount (optional)</label>
+      <input type="number" id="amountInput" placeholder="e.g. 250.00">
+
+      <label>Merchant Name (optional)</label>
+      <input type="text" id="merchantInput" placeholder="Full name">
+
+      <label>Merchant Logo (for QR center)</label>
+      <input type="file" id="logoInput" accept="image/*">
+
+      <label>Shop Banner (top of poster)</label>
+      <input type="file" id="bannerInput" accept="image/*">
+
+      <label>Poster Frame (PNG overlay) — optional</label>
+      <input type="file" id="frameInput" accept="image/*">
+
+      <div class="gap"></div>
+
+      <label>Choose Theme</label>
+      <div class="theme-picker">
+        <div class="theme-chip blue" data-theme="blue">BLUE</div>
+        <div class="theme-chip green" data-theme="green">GREEN</div>
+        <div class="theme-chip neon" data-theme="neon">NEON</div>
+      </div>
+
+      <div class="gap"></div>
+      <small class="muted">Poster size: A4 portrait. You can download PNG or PDF (A4). Use 'Save to History' to save current poster settings.</small>
+    </div>
+
+    <div class="right panel">
+      <h3>Preview & History</h3>
+      <div class="preview-wrap">
+        <div class="poster-preview panel" id="previewCard">
+          <!-- canvas will be drawn here -->
+          <canvas id="posterCanvas" class="preview-canvas" width="1240" height="1754"></canvas>
+        </div>
+
+        <div style="width:320px">
+          <div style="margin-bottom:10px"><strong>Live Preview</strong></div>
+          <div class="small-muted">Theme</div>
+          <div id="currentTheme" style="margin-bottom:10px">BLUE</div>
+
+          <div class="small-muted">QR & Poster History</div>
+          <div class="history-list panel" id="historyList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden element used for print/pdf (same canvas) -->
+<div id="printArea" style="display:none"></div>
+
+<script>
+/* Poster & QR Generator (A4) - Custom Premium
+   - A4 canvas: 1240 x 1754 (approx 150 DPI)
+   - Themes: blue, green, neon
+   - Inputs: shop name, tagline, upi, amount, merchant name, logo, banner, frame
+   - Save settings to history (localStorage)
+*/
+
+const canvas = document.getElementById('posterCanvas');
+const ctx = canvas.getContext('2d');
+
+const shopNameInput = document.getElementById('shopNameInput');
+const taglineInput = document.getElementById('taglineInput');
+const upiInput = document.getElementById('upiInput');
+const amountInput = document.getElementById('amountInput');
+const merchantInput = document.getElementById('merchantInput');
+
+const logoInput = document.getElementById('logoInput');
+const bannerInput = document.getElementById('bannerInput');
+const frameInput = document.getElementById('frameInput');
+
+const themeChips = document.querySelectorAll('.theme-chip');
+const currentThemeEl = document.getElementById('currentTheme');
+
+const downloadPngBtn = document.getElementById('downloadPngBtn');
+const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+const printBtn = document.getElementById('printBtn');
+const saveHistoryBtn = document.getElementById('saveHistoryBtn');
+
+const historyListEl = document.getElementById('historyList');
+
+const darkToggle = document.getElementById('darkToggle');
+const darkLabel = document.getElementById('darkLabel');
+const siteWrap = document.getElementById('siteWrap');
+
+let selectedTheme = 'blue';
+let logoImg = null;
+let bannerImg = null;
+let frameImg = null;
+let qrData = null; // generated qruri
+let qrImage = null; // qr canvas image (Image object)
+
+// localStorage keys
+const HISTORY_KEY = 'smartdukan_poster_history_v1';
+
+// helpers for loading images from file input
+function fileToImage(file, callback){
+  if(!file) { callback(null); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => callback(img);
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// theme styles (gradients)
+function getThemeGradient(theme, ctx, w,h){
+  if(theme === 'blue'){
+    const g = ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#e6f5ff');
+    g.addColorStop(1,'#e8f0ff');
+    return g;
+  } else if(theme === 'green'){
+    const g = ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#ecfdf5');
+    g.addColorStop(1,'#f0fff9');
+    return g;
+  } else { // neon
+    const g = ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#f5f3ff');
+    g.addColorStop(1,'#ecfeff');
+    return g;
+  }
+}
+
+// generate UPI uri
+function buildUpi(pa,pn,am,tn='') {
+  if(!pa) return '';
+  let uri = `upi://pay?pa=${encodeURIComponent(pa)}&pn=${encodeURIComponent(pn||'')}&cu=INR`;
+  if(am && !isNaN(Number(am)) && Number(am) > 0) uri += `&am=${Number(am).toFixed(2)}`;
+  if(tn) uri += `&tn=${encodeURIComponent(tn)}`;
+  return uri;
+}
+
+// generate QR as image (use QRious into temp canvas then create Image)
+function generateQrImage(uri, size=520){
+  return new Promise((resolve) => {
+    if(!uri) { resolve(null); return; }
+    const temp = document.createElement('canvas');
+    temp.width = size; temp.height = size;
+    const q = new QRious({ element: temp, value: uri, size: size, level: 'H' });
+    const img = new Image();
+    img.onload = () => resolve({img, canvas: temp});
+    img.src = temp.toDataURL('image/png');
+  });
+}
+
+// draw poster on canvas
+async function renderPoster(){
+  // clear
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const w = canvas.width, h = canvas.height;
+
+  // background
+  ctx.fillStyle = getThemeGradient(selectedTheme, ctx, w,h);
+  ctx.fillRect(0,0,w,h);
+
+  // banner area (top)
+  if(bannerImg){
+    // draw banner as cover-width with some height (approx 20% of height)
+    const bannerH = Math.round(h * 0.18);
+    // draw banner centered cover
+    const scale = Math.max(w / bannerImg.width, bannerH / bannerImg.height);
+    const bw = bannerImg.width * scale;
+    const bh = bannerImg.height * scale;
+    const bx = (w - bw) / 2;
+    ctx.drawImage(bannerImg, bx, 18, bw, bh);
+  } else {
+    // optional colored header bar
+    ctx.fillStyle = (selectedTheme==='blue')? '#2563eb' : (selectedTheme==='green'? '#059669' : '#7c3aed');
+    ctx.globalAlpha = 0.06;
+    ctx.fillRect(0,0,w, Math.round(h*0.12));
+    ctx.globalAlpha = 1;
+  }
+
+  // Shop name
+  ctx.fillStyle = (selectedTheme==='neon')? '#060b2a' : '#071241';
+  ctx.font = "bold 48px Inter, Arial";
+  ctx.textAlign = "center";
+  const shop = shopNameInput.value.trim() || "My Shop";
+  ctx.fillText(shop, w/2, Math.round(h*0.28));
+
+  // tagline
+  const tag = taglineInput.value.trim();
+  if(tag){
+    ctx.font = "600 20px Inter, Arial";
+    ctx.fillStyle = "#334155";
+    ctx.fillText(tag, w/2, Math.round(h*0.315));
+  }
+
+  // draw poster QR box
+  const qrSize = Math.round(w * 0.38);
+  const qrX = Math.round((w - qrSize) / 2);
+  const qrY = Math.round(h * 0.38);
+
+  // QR generation
+  const upi = upiInput.value.trim();
+  const amt = amountInput.value.trim();
+  const merchant = merchantInput.value.trim();
+  const pn = merchant || shop;
+  qrData = buildUpi(upi, pn, amt, tag);
+
+  const qrRes = await generateQrImage(qrData, qrSize);
+  if(qrRes && qrRes.img){
+    // white box background for QR
+    ctx.fillStyle = "#fff";
+    const pad = 18;
+    ctx.fillRect(qrX - pad, qrY - pad, qrSize + pad*2, qrSize + pad*2);
+    // draw rounded border
+    ctx.strokeStyle = "#e6eefc";
+    ctx.lineWidth = 2;
+    roundRect(ctx, qrX - pad, qrY - pad, qrSize + pad*2, qrSize + pad*2, 18);
+    ctx.stroke();
+
+    // draw qr image
+    ctx.drawImage(qrRes.img, qrX, qrY, qrSize, qrSize);
+
+    // overlay logo at center if provided
+    if(logoImg){
+      const logoW = Math.round(qrSize * 0.22);
+      const logoH = Math.round(qrSize * 0.22);
+      ctx.beginPath();
+      const lx = qrX + (qrSize - logoW)/2;
+      const ly = qrY + (qrSize - logoH)/2;
+      // circle clip
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(lx + logoW/2, ly + logoH/2, Math.max(logoW,logoH)/2 + 3, 0, Math.PI*2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(logoImg, lx, ly, logoW, logoH);
+      ctx.restore();
+
+      // draw white border circle
+      ctx.beginPath();
+      ctx.arc(lx + logoW/2, ly + logoH/2, Math.max(logoW,logoH)/2 + 3, 0, Math.PI*2);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+  } else {
+    // show placeholder
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(qrX, qrY, qrSize, qrSize);
+  }
+
+  // UPI details below QR
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#0b1220";
+  ctx.font = "600 20px Inter, Arial";
+  ctx.fillText(upi || "UPI: —", w/2, qrY + qrSize + 48);
+
+  // amount badge if provided
+  if(amt){
+    ctx.fillStyle = (selectedTheme==='green')? "#059669" : (selectedTheme==='neon'? "#06b6d4" : "#2563eb");
+    const badge = `Pay ₹ ${Number(amt).toFixed(2)}`;
+    ctx.font = "700 22px Inter, Arial";
+    ctx.fillText(badge, w/2, qrY + qrSize + 88);
+  }
+
+  // optional frame overlay
+  if(frameImg){
+    // cover canvas with frame image scaled cover
+    const scale = Math.max(w / frameImg.width, h / frameImg.height);
+    const fw = frameImg.width * scale;
+    const fh = frameImg.height * scale;
+    const fx = (w - fw)/2;
+    const fy = (h - fh)/2;
+    ctx.drawImage(frameImg, fx, fy, fw, fh);
+  }
+
+  // footer small text
+  ctx.font = "500 12px Inter, Arial";
+  ctx.fillStyle = "#475569";
+  ctx.fillText("Scan & Pay using any UPI app", w/2, h - 40);
+}
+
+// rounded rect helper
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+// event handlers for image uploads
+logoInput.addEventListener('change', (e) => {
+  fileToImage(e.target.files[0], (img) => { logoImg = img; renderPoster(); });
+});
+bannerInput.addEventListener('change', (e) => {
+  fileToImage(e.target.files[0], (img) => { bannerImg = img; renderPoster(); });
+});
+frameInput.addEventListener('change', (e) => {
+  fileToImage(e.target.files[0], (img) => { frameImg = img; renderPoster(); });
+});
+
+// theme selection
+themeChips.forEach(chip => {
+  chip.addEventListener('click', () => {
+    selectedTheme = chip.dataset.theme;
+    currentThemeEl.innerText = chip.dataset.theme.toUpperCase();
+    renderPoster();
+  });
+});
+
+// inputs change -> render
+[shopNameInput, taglineInput, upiInput, amountInput, merchantInput].forEach(inp => inp.addEventListener('input', renderPoster));
+
+// download PNG (full canvas)
+downloadPngBtn.addEventListener('click', () => {
+  const dataUrl = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `smartdukan_poster_${Date.now()}.png`;
+  a.click();
+});
+
+// download PDF (A4) using jsPDF
+downloadPdfBtn.addEventListener('click', async () => {
+  const { jsPDF } = window.jspdf;
+  // use canvas 1240x1754 px -> convert to JPEG and add to PDF in mm (A4 210x297 mm)
+  const imgData = canvas.toDataURL('image/jpeg', 1.0);
+  const pdf = new jsPDF('portrait','mm','a4');
+  // calculate width and height in mm maintaining A4 ratio
+  const pdfWidth = 210;
+  const pdfHeight = 297;
+  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+  pdf.save(`smartdukan_poster_${new Date().toISOString().slice(0,10)}.pdf`);
+});
+
+// print uses new window with image
+printBtn.addEventListener('click', () => {
+  const w = window.open('', '_blank');
+  const dataUrl = canvas.toDataURL('image/png');
+  w.document.write(`<img src="${dataUrl}" style="width:100%;height:auto">`);
+  w.document.close();
+  w.focus();
+  w.print();
+  // optionally close after print
+});
+
+// Save to history
+saveHistoryBtn.addEventListener('click', () => {
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const record = {
+    shop: shopNameInput.value.trim(),
+    tagline: taglineInput.value.trim(),
+    upi: upiInput.value.trim(),
+    amount: amountInput.value.trim(),
+    merchant: merchantInput.value.trim(),
+    theme: selectedTheme,
+    time: new Date().toLocaleString(),
+    preview: canvas.toDataURL('image/png')
+  };
+  arr.push(record);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
+  loadHistory();
+  alert('Saved to history');
+});
+
+// load history
+function loadHistory(){
+  historyListEl.innerHTML = '';
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  if(!arr.length) { historyListEl.innerHTML = '<div class="small-muted">No history yet</div>'; return; }
+  arr.slice().reverse().forEach((it, idx) => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = `<div style="flex:1">
+      <strong>${escapeHtml(it.shop || '—')}</strong><br>
+      <small class="muted">${escapeHtml(it.upi || '—')}</small><br>
+      <small class="small-muted">${it.time}</small>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <button class="btn ghost" onclick="previewHistory(${arr.length - 1 - idx})">Preview</button>
+      <button class="btn primary" onclick="loadHistoryItem(${arr.length - 1 - idx})">Load</button>
+    </div>`;
+    historyListEl.appendChild(div);
+  });
+}
+
+// preview history (show bigger) - opens in new tab
+window.previewHistory = function(index){
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const item = arr[index];
+  if(!item) return alert('Not found');
+  const w = window.open('');
+  w.document.write(`<title>${escapeHtml(item.shop)}</title><img src="${item.preview}" style="width:100%;">`);
+  w.document.close();
+}
+
+// load history item into editor (not images)
+window.loadHistoryItem = function(index){
+  const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const item = arr[index];
+  if(!item) return alert('Not found');
+  shopNameInput.value = item.shop || '';
+  taglineInput.value = item.tagline || '';
+  upiInput.value = item.upi || '';
+  amountInput.value = item.amount || '';
+  merchantInput.value = item.merchant || '';
+  selectedTheme = item.theme || 'blue';
+  currentThemeEl.innerText = selectedTheme.toUpperCase();
+  renderPoster();
+}
+
+// escape html
+function escapeHtml(text){ return String(text||'').replace(/[&<>"'`=\/]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;","`":"&#96;","=":"&#61;", "/":"&#47;"}[s])); }
+
+// dark mode toggle
+let darkOn = false;
+darkToggle.addEventListener('click', () => {
+  darkOn = !darkOn;
+  if(darkOn){
+    document.documentElement.classList.add('dark-mode');
+    siteWrap.classList.add('dark-mode');
+    darkLabel.innerText = 'Dark: ON';
+  } else {
+    document.documentElement.classList.remove('dark-mode');
+    siteWrap.classList.remove('dark-mode');
+    darkLabel.innerText = 'Dark: OFF';
+  }
+});
+
+// initial render
+renderPoster();
+loadHistory();
+
+</script>
+
+</body>
+</html>

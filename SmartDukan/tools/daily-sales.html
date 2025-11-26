@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Daily Sales & Monthly Report — SmartDukan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- html2pdf -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+
+<style>
+body{
+    font-family: Inter, Arial, sans-serif;
+    background:#f3f5f9;
+    margin:0;
+    padding:20px;
+}
+.container{
+    max-width:950px;
+    background:#fff;
+    padding:25px;
+    margin:auto;
+    border-radius:16px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.1);
+}
+h2{margin-top:0;color:#222;}
+input,select{
+    width:100%;
+    padding:12px;
+    margin:8px 0;
+    border:1px solid #ccc;
+    border-radius:6px;
+}
+button{
+    padding:12px;
+    background:#0066ff;
+    color:#fff;
+    border:none;
+    width:100%;
+    border-radius:6px;
+    cursor:pointer;
+    margin-top:4px;
+}
+button:hover{background:#004bcc;}
+
+.table-box{
+    max-height:280px;
+    overflow-y:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+}
+th,td{
+    padding:10px;
+    border:1px solid #ddd;
+}
+th{
+    background:#007bff;
+    color:white;
+    position:sticky;
+    top:0;
+}
+
+.section{
+    margin-top:40px;
+    border-top:3px solid #ddd;
+    padding-top:20px;
+}
+.chart-box{margin-top:30px;}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>📅 Daily Sales Entry</h2>
+
+<input id="saleDate" type="date">
+<input id="customer" placeholder="Customer Name">
+<input id="saleAmount" type="number" placeholder="Sale Amount (₹)">
+<input id="gst" type="number" placeholder="GST % (optional)">
+<button onclick="addSale()">Add Sale</button>
+
+<div class="table-box">
+<table id="salesTable">
+<thead>
+<tr>
+<th>Date</th>
+<th>Customer</th>
+<th>Amount</th>
+<th>GST</th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<!-- EXPENSE MANAGER -->
+<div class="section">
+<h2>💸 Expense Manager</h2>
+<input id="expDate" type="date">
+<input id="expName" placeholder="Expense Name">
+<input id="expAmount" type="number" placeholder="Amount (₹)">
+<button onclick="addExpense()">Add Expense</button>
+
+<div class="table-box">
+<table id="expenseTable">
+<thead>
+<tr>
+<th>Date</th>
+<th>Expense</th>
+<th>Amount</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+
+<!-- CUSTOMER-WISE SUMMARY -->
+<div class="section">
+<h2>👥 Customer-wise Sale Summary</h2>
+<ul id="customerSummary"></ul>
+</div>
+
+<!-- MONTHLY SUMMARY -->
+<div class="section">
+<h2>📊 Monthly Summary</h2>
+<p><b>Total Sales: ₹ <span id="sumSales">0</span></b></p>
+<p><b>Total Expense: ₹ <span id="sumExpense">0</span></b></p>
+<p><b>Profit: ₹ <span id="sumProfit">0</span></b></p>
+
+<div class="chart-box">
+<h3>📈 Sales / Expense / Profit Graph</h3>
+<canvas id="summaryChart" height="130"></canvas>
+</div>
+
+<button onclick="downloadPDF()">Download Monthly PDF Report</button>
+<button style="background:#d90000" onclick="clearAll()">Clear All Data</button>
+</div>
+
+</div>
+
+<script>
+let sales = JSON.parse(localStorage.getItem("sales") || "[]");
+let expenses = JSON.parse(localStorage.getItem("expenses") || "[]");
+
+function saveData(){
+    localStorage.setItem("sales", JSON.stringify(sales));
+    localStorage.setItem("expenses", JSON.stringify(expenses));
+}
+
+function addSale(){
+    let date = saleDate.value;
+    let customer = customerField.value;
+    let amount = parseFloat(saleAmount.value);
+    let gst = parseFloat(gstField.value || 0);
+
+    if(!date || !customer || !amount){
+        alert("Please enter all sale details.");
+        return;
+    }
+
+    let total = amount + (amount * gst / 100);
+    sales.push({date, customer, amount, gst, total});
+    saveData();
+    renderAll();
+}
+
+function updateSalesTable(){
+    let tbody = document.querySelector("#salesTable tbody");
+    tbody.innerHTML = "";
+
+    sales.forEach(s=>{
+        tbody.innerHTML += `
+        <tr>
+            <td>${s.date}</td>
+            <td>${s.customer}</td>
+            <td>₹${s.amount}</td>
+            <td>${s.gst}%</td>
+            <td>₹${s.total.toFixed(2)}</td>
+        </tr>`;
+    });
+}
+
+function addExpense(){
+    let date = expDate.value;
+    let name = expName.value;
+    let amount = parseFloat(expAmount.value);
+
+    if(!date || !name || !amount){
+        alert("Enter full expense details");
+        return;
+    }
+
+    expenses.push({date,name,amount});
+    saveData();
+    renderAll();
+}
+
+function updateExpenseTable(){
+    let tbody = document.querySelector("#expenseTable tbody");
+    tbody.innerHTML = "";
+
+    expenses.forEach(e=>{
+        tbody.innerHTML += `
+        <tr>
+            <td>${e.date}</td>
+            <td>${e.name}</td>
+            <td>₹${e.amount}</td>
+        </tr>`;
+    });
+}
+
+function updateSummary(){
+    let totalSales = sales.reduce((t,s)=>t+s.total,0);
+    let totalExpenses = expenses.reduce((t,e)=>t+e.amount,0);
+    let profit = totalSales - totalExpenses;
+
+    sumSales.textContent = totalSales.toFixed(2);
+    sumExpense.textContent = totalExpenses.toFixed(2);
+    sumProfit.textContent = profit.toFixed(2);
+
+    drawGraph(totalSales,totalExpenses,profit);
+}
+
+function updateCustomerSummary(){
+    let data = {};
+
+    sales.forEach(s=>{
+        if(!data[s.customer]) data[s.customer] = 0;
+        data[s.customer] += s.total;
+    });
+
+    let list = "";
+    for(let c in data){
+        list += `<li><b>${c}</b> — ₹${data[c].toFixed(2)}</li>`;
+    }
+
+    document.getElementById("customerSummary").innerHTML = list;
+}
+
+let chart;
+function drawGraph(s,e,p){
+    let ctx = document.getElementById("summaryChart");
+
+    if(chart) chart.destroy();
+
+    chart = new Chart(ctx,{
+        type:"bar",
+        data:{
+            labels:["Sales","Expense","Profit"],
+            datasets:[{
+                data:[s,e,p],
+                backgroundColor:["#007bff","#ff4444","#00c851"]
+            }]
+        }
+    });
+}
+
+function downloadPDF(){
+    html2pdf().from(document.querySelector(".container"))
+    .set({margin:10, filename:"Monthly-Report.pdf", html2canvas:{scale:2}})
+    .save();
+}
+
+function clearAll(){
+    if(confirm("Clear all sales and expense data?")){
+        sales = [];
+        expenses = [];
+        saveData();
+        renderAll();
+    }
+}
+
+function renderAll(){
+    updateSalesTable();
+    updateExpenseTable();
+    updateSummary();
+    updateCustomerSummary();
+}
+
+renderAll();
+</script>
+
+</body>
+</html>

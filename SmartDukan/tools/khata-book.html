@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Khata Book — SmartDukan</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f3f4f6;
+    margin: 0;
+}
+
+/* Header */
+.header {
+    background: #111827;
+    color: #fff;
+    padding: 16px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+/* Container */
+.container {
+    max-width: 500px;
+    margin: 25px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+label {
+    font-weight: bold;
+    margin-top: 12px;
+    display: block;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 10px;
+    margin-top: 6px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.btn {
+    width: 100%;
+    padding: 12px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    font-size: 18px;
+    border-radius: 10px;
+    margin-top: 18px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: #1e40af;
+}
+
+/* Customer session list */
+.session-box {
+    max-width: 500px;
+    margin: 20px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.session-item {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.session-item:last-child {
+    border-bottom: none;
+}
+
+.session-title {
+    font-weight: bold;
+}
+
+.delete-btn {
+    float: right;
+    background: red;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.whatsapp-small {
+    margin-top: 6px;
+    font-size: 14px;
+    color: #059669;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">Khata Book</div>
+
+<div class="container">
+
+    <label>Customer Name</label>
+    <input type="text" id="name" placeholder="Enter customer name">
+
+    <label>Date</label>
+    <input type="date" id="date">
+
+    <label>Saman Liya (Items)</label>
+    <textarea id="items" rows="3" placeholder="Dal 1kg - 80₹, Oil 1L - 110₹"></textarea>
+
+    <label>Total Paisa</label>
+    <input type="number" id="total" placeholder="Total amount">
+
+    <label>Diya Hua Paisa</label>
+    <input type="number" id="paid" placeholder="Paid amount">
+
+    <label>Baki Amount</label>
+    <input type="text" id="baki" readonly>
+
+    <button class="btn" onclick="calculate()">Calculate Baki</button>
+
+    <button class="btn" style="background:#059669" onclick="addSession()">Save Entry</button>
+
+    <button class="btn" style="background:#0ea5e9" onclick="sendWhatsApp()">Send on WhatsApp</button>
+</div>
+
+<!-- Customer Session List -->
+<div class="session-box">
+    <h2>📋 All Customer Sessions</h2>
+    <div id="sessionList"></div>
+</div>
+
+<script>
+function calculate() {
+    let total = Number(document.getElementById("total").value);
+    let paid = Number(document.getElementById("paid").value);
+    let baki = total - paid;
+
+    document.getElementById("baki").value = baki + " ₹";
+}
+
+// SAVE SESSION TO LOCAL STORAGE
+function addSession() {
+    let name = document.getElementById("name").value;
+    let date = document.getElementById("date").value;
+    let items = document.getElementById("items").value;
+    let total = document.getElementById("total").value;
+    let paid = document.getElementById("paid").value;
+    let baki = total - paid;
+
+    if (!name || !total) {
+        alert("Name aur Total Amount zaroori hai!");
+        return;
+    }
+
+    let session = {
+        name,
+        date,
+        items,
+        total,
+        paid,
+        baki
+    };
+
+    let list = JSON.parse(localStorage.getItem("khataSessions")) || [];
+    list.push(session);
+    localStorage.setItem("khataSessions", JSON.stringify(list));
+
+    loadSessions();
+    alert("Entry Saved Successfully!");
+}
+
+function loadSessions() {
+    let list = JSON.parse(localStorage.getItem("khataSessions")) || [];
+    let html = "";
+
+    list.forEach((s, index) => {
+        html += `
+        <div class="session-item">
+            <span class="session-title">${s.name}</span> 
+            <span class="delete-btn" onclick="deleteSession(${index})">Delete</span>
+            <br>
+            Total: ${s.total} ₹ | Paid: ${s.paid} ₹ | Baki: ${s.baki} ₹
+            <div class="whatsapp-small" onclick="sendSessionWhatsApp(${index})">
+                📩 Send on WhatsApp
+            </div>
+        </div>
+        `;
+    });
+
+    document.getElementById("sessionList").innerHTML = html;
+}
+
+function deleteSession(index) {
+    let list = JSON.parse(localStorage.getItem("khataSessions")) || [];
+    list.splice(index, 1);
+    localStorage.setItem("khataSessions", JSON.stringify(list));
+    loadSessions();
+}
+
+// SINGLE SESSION WHATSAPP SHARE
+function sendSessionWhatsApp(index) {
+    let list = JSON.parse(localStorage.getItem("khataSessions")) || [];
+    let s = list[index];
+
+    let msg =
+`📒 *SmartDukan Khata Book*
+————————————
+👤 Customer: ${s.name}
+📅 Date: ${s.date}
+
+🛒 Items:
+${s.items}
+
+💰 Total: ${s.total} ₹
+💵 Paid: ${s.paid} ₹
+🧾 Baki: ${s.baki} ₹
+————————————
+धन्यवाद!`;
+
+    let url = "https://wa.me/?text=" + encodeURIComponent(msg);
+    window.open(url, "_blank");
+}
+
+// CURRENT ENTRY WHATSAPP
+function sendWhatsApp() {
+    let name = document.getElementById("name").value;
+    let date = document.getElementById("date").value;
+    let items = document.getElementById("items").value;
+    let total = document.getElementById("total").value;
+    let paid = document.getElementById("paid").value;
+    let baki = total - paid;
+
+    let msg =
+`📒 *SmartDukan Khata Book*
+————————————
+👤 Customer: ${name}
+📅 Date: ${date}
+
+🛒 Items:
+${items}
+
+💰 Total: ${total} ₹
+💵 Paid: ${paid} ₹
+🧾 Baki: ${baki} ₹
+————————————
+धन्यवाद!`;
+
+    let url = "https://wa.me/?text=" + encodeURIComponent(msg);
+    window.open(url, "_blank");
+}
+
+loadSessions();
+</script>
+
+</body>
+</html>

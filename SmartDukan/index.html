@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SmartDukan — Smart Tools for Dukandars</title>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="assets/css/style.css">
+
+  <!-- favicon (optional) -->
+  <link rel="icon" href="assets/img/icons/bill.png" type="image/png">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img src="assets/img/icons/bill.png" alt="logo" class="brand-icon" />
+        <span class="brand-text">SmartDukan</span>
+      </a>
+
+      <nav class="nav" id="nav">
+        <a href="index.html" class="nav-link active">Home</a>
+        <a href="tools/khata-book.html" class="nav-link">Khata</a>
+        <a href="tools/bill-generator.html" class="nav-link">Bill</a>
+        <a href="tools/stock-manager.html" class="nav-link">Stock</a>
+        <a href="tools/qr-generator.html" class="nav-link">QR</a>
+        <a href="tools/price-tag.html" class="nav-link">Price Tag</a>
+        <a href="tools/daily-sales/index.html" class="nav-link">Daily Sales</a>
+      </nav>
+
+      <div class="header-actions">
+        <button class="btn secondary" onclick="location.href='tools/khata-book.html'">Open Khata</button>
+        <button class="hamburger" id="hamburger" aria-label="menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-left">
+          <h1>Smart Tools for Smart Dukandars</h1>
+          <p class="lead">Billing, Khata, Stock, QR और और भी कई आवश्यक tools — एक ही जगह। सरल, तेज़ और भरोसेमंद।</p>
+
+          <div class="hero-cta">
+            <a class="btn primary" href="tools/bill-generator.html">Generate Bill</a>
+            <a class="btn ghost" href="tools/khata-book.html">Open Khata Book</a>
+          </div>
+
+          <ul class="features">
+            <li>LocalStorage के साथ Offline-ready</li>
+            <li>WhatsApp शेयरिंग और Printable बिल</li>
+            <li>Mobile-first, तेज़ और हल्का</li>
+          </ul>
+        </div>
+
+        <div class="hero-right">
+          <div class="card-preview">
+            <div class="tools-grid">
+              <a class="tool" href="tools/bill-generator.html">
+                <img src="assets/img/icons/bill.png" alt="" />
+                <span>Bill Generator</span>
+              </a>
+              <a class="tool" href="tools/khata-book.html">
+                <img src="assets/img/icons/khata.png" alt="" />
+                <span>Khata Book</span>
+              </a>
+              <a class="tool" href="tools/stock-manager.html">
+                <img src="assets/img/icons/stock.png" alt="" />
+                <span>Stock Manager</span>
+              </a>
+              <a class="tool" href="tools/qr-generator.html">
+                <img src="assets/img/icons/qr.png" alt="" />
+                <span>UPI QR</span>
+              </a>
+              <a class="tool" href="tools/price-tag.html">
+                <img src="assets/img/icons/price.png" alt="" />
+                <span>Price Tag</span>
+              </a>
+              <a class="tool" href="tools/daily-sales.html">
+                <img src="assets/img/icons/sale.png" alt="" />
+                <span>Daily Sales</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tools-section">
+      <div class="container">
+        <h2 class="section-title">All Tools</h2>
+        <div class="cards">
+          <!-- each card: update icon path if needed -->
+          <a class="card" href="tools/bill-generator.html">
+            <img src="assets/img/icons/bill.png" alt="">
+            <h3>Bill Generator</h3>
+            <p>Simple, printable bills with GST & QR share.</p>
+          </a>
+
+          <a class="card" href="tools/khata-book.html">
+            <img src="assets/img/icons/khata.png" alt="">
+            <h3>Khata Book</h3>
+            <p>Customer ledger — items, paid, baki, WhatsApp share.</p>
+          </a>
+
+          <a class="card" href="tools/stock-manager.html">
+            <img src="assets/img/icons/stock.png" alt="">
+            <h3>Stock Manager</h3>
+            <p>Add items, auto low-stock alerts, export CSV.</p>
+          </a>
+
+          <a class="card" href="tools/qr-generator.html">
+            <img src="assets/img/icons/qr.png" alt="">
+            <h3>UPI QR Generator</h3>
+            <p>Create and download UPI QR for payments.</p>
+          </a>
+
+          <a class="card" href="tools/price-tag.html">
+            <img src="assets/img/icons/price.png" alt="">
+            <h3>Price Tag Maker</h3>
+            <p>Print-ready price tags and barcodes.</p>
+          </a>
+
+          <a class="card" href="tools/daily-sales.html">
+            <img src="assets/img/icons/sale.png" alt="">
+            <h3>Daily Sales</h3>
+            <p>Record daily takings and view summaries.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>© <span id="year"></span> SmartDukan — Built with ❤️ for Dukandars</div>
+      <div class="footer-links">
+        <a href="tools/notes.html">Notes</a>
+        <a href="tools/quotation-maker.html">Quotation</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+  <!-- Firebase App -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+<!-- Firebase Auth -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
+<!-- Firebase Firestore -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+
+</body>
+</html>

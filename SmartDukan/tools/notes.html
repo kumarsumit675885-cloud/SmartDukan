@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="hi">
+<head><meta charset="utf-8"><meta name="viewport"content="width=device-width,initial-scale=1"><title>Notes - SmartDukan</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>.wrap{max-width:900px;margin:18px auto;padding:18px;background:#fff;border-radius:10px}.note{padding:10px;border-radius:8px;background:#fbfbff;margin:8px 0}</style>
+</head>
+<body>
+<header class="site-header"><div class="logo">SmartDukan</div></header>
+<div class="wrap">
+  <h2>Notes / Reminders</h2>
+  <textarea id="noteText" rows="4" style="width:100%;padding:8px"></textarea>
+  <div style="margin-top:8px"><button class="btn" id="addNote">Add Note</button> <button class="btn ghost" id="clearAll">Clear All</button></div>
+  <div id="notesList" style="margin-top:12px"></div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+let notes = SD.loadJSON('sd_notes', []);
+const list = SD.q('#notesList');
+function render(){ list.innerHTML=''; notes.forEach((n,i)=>{ const d=document.createElement('div'); d.className='note'; d.innerHTML=`<div>${n.text}</div><div class="small">${n.date}</div><div style="margin-top:6px"><button class="btn small del" data-i="${i}">Delete</button></div>`; list.appendChild(d); }); SD.qa('.del').forEach(b=>b.addEventListener('click', e=>{ notes.splice(+e.target.dataset.i,1); SD.saveJSON('sd_notes',notes); render(); })); }
+SD.q('#addNote').addEventListener('click', ()=>{ const t=SD.q('#noteText').value.trim(); if(!t) return alert('Add note'); notes.unshift({text:t,date:new Date().toLocaleString()}); SD.saveJSON('sd_notes',notes); SD.q('#noteText').value=''; render(); });
+SD.q('#clearAll').addEventListener('click', ()=>{ if(confirm('Clear all notes?')){ notes=[]; SD.saveJSON('sd_notes',notes); render(); }}); render();
+</script>
+</body>
+</html>
